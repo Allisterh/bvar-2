@@ -21,7 +21,6 @@
 #'
 #' @examples
 #'
-
 var_data_prepare = function(data , lags = 1, const = T, trend = F, trend_qua = F, ex = NULL, ex_lag = NULL, xlags = 0 ){
 
   # Check the consistency of the inputs
