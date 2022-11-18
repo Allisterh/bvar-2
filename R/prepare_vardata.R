@@ -20,6 +20,8 @@
 #' @export
 #'
 #' @examples
+#'
+
 var_data_prepare = function(data , lags = 1, const = T, trend = F, trend_qua = F, ex = NULL, ex_lag = NULL, xlags = 0 ){
 
   # Check the consistency of the inputs
@@ -110,77 +112,128 @@ var_data_prepare = function(data , lags = 1, const = T, trend = F, trend_qua = F
   }
 
   # Start data preparation #
-  ndet = 0 # Sum the number of the deterministic terms
-  nexo = 0 # Sum the number of the exogenous variables
-  n = ncol(data)  # number of variables
-  t = nrow(data)  # number of observations
-  dt = NULL
+  number_of_deterministic <- 0 # Sum the number of the deterministic terms
 
-  # Prepare the data
+  number_of_exogenous     <- 0 # Sum the number of the exogenous variables
+
+  number_of_variables     <- ncol(data)  # number of variables
+
+  number_of_observations  <- nrow(data)  # number of observations
+
+  # Initialize the block of the deterministc terms
+  deterministic_block     <- NULL
+
   # separate exogenous from endogenous variables and calculate the lags
   y = data
 
   # calculate lags for endogenous
-  x = dplyr::lag(y, 1)
-  names(x) = str_c(names(x),1, sep = "_")
-  if (lags >1 ){
+  x  <-  dplyr::lag(y, 1)
+
+  names(x) <- paste(names(x), 1, sep = "_")
+
+  if ( lags >1 ) {
+
     for (i in 2:lags) {
-      lag_t = dplyr::lag(y, i)
-      names(lag_t) = str_c(names(lag_t),i, sep = "_")
-      x = cbind(x,  lag_t)
+
+      lag_temp <- dplyr::lag(y, i)
+
+      names(lag_temp) <- paste(names(lag_temp),i, sep = "_")
+
+      x <- cbind(x,  lag_temp)
+
     }
+
   }
 
   # check for constant
-  if (const == T) {
-    dt = cbind(c = rep(1, t)) # First column filled with 1s
-    ndet = ndet + 1
+  if ( const == T ) {
+
+    deterministic_block <- cbind(c = rep(1, number_of_observations)) # First column filled with 1s
+
+    number_of_deterministic <- number_of_deterministic + 1
+
   }
 
   # check for trend
-  if (trend == T) {
-    dt = cbind(dt, "trend" = 1:nrow(y)) # First column filled with 1s
-    ndet = ndet + 1
+  if ( trend == T ) {
+
+    deterministic_block <- cbind(deterministic_block, "trend" = 1:nrow(y)) # Second column filled with linear trend
+
+    number_of_deterministic <- number_of_deterministic + 1
+
   }
 
   # check for quadratic trend
-  if (trend_qua == T) {
-    dt = cbind( dt, "q_trend"  = c(1:nrow(y))^2) # First column filled with 1s
-    ndet = ndet + 1
+  if ( trend_qua == T ) {
+
+    deterministic_block = cbind(deterministic_block, "q_trend"  = c(1:nrow(y))^2) # third column filled with quadratic trend
+
+    number_of_deterministic <- number_of_deterministic + 1
+
   }
 
   # calculate lags for the exogenous
-  if(!is.null(ex_lag)){
+  if( !is.null(ex_lag) ) {
 
-    te_ex_lag = ex_lag
-    if (xlags > 0){
+    temp_ex_lag = ex_lag
+
+    if ( xlags > 0 ) {
+
       for (i in 1:xlags) {
-        xlag_t = dplyr::lag(te_ex_lag, i)
-        names(xlag_t) = str_c(names(xlag_t),i, sep = "_")
-        ex_lag = cbind(ex_lag,  xlag_t)
+
+        xlag_temp = dplyr::lag(temp_ex_lag, i)
+
+        names(xlag_temp) = str_c(names(xlag_temp),i, sep = "_")
+
+        ex_lag = cbind(ex_lag,  xlag_temp)
+
       }
     }
-    nexo = nexo + ncol(ex_lag)
+    number_of_exogenous = number_of_exogenous + ncol(ex_lag)
 
     # bind the exogenous variables with the lagged matrix of endogenous
     x = cbind(ex_lag,x)
+
   }
 
-  if(!is.null(ex)){
+  if( !is.null(ex) ) {
+
     x = cbind(ex,x)
-    nexo = nexo + ncol(ex)
+
+    number_of_exogenous = number_of_exogenous + ncol(ex)
+
   }
 
-  if(!is.null(dt)){
-    x = cbind(dt,x)
+
+  if( !is.null(deterministic_block) ){
+
+    x = cbind(deterministic_block,x)
+
   }
 
-  y_t =  as.matrix(y[(lags+1):t,]) # LHS
-  x_t =  as.matrix(x[(lags+1):t,]) # RHS
+  # I turn the data into matrices to facilitate the step of the calculations
+  y_lhs =  as.matrix(y[(lags+1):number_of_observations,]) # LHS
+  x_rhs =  as.matrix(x[(lags+1):number_of_observations,]) # RHS
 
-  nexo = ndet + nexo
-  names_endo  = names(y)
-  L_R_HS = list(y_t,x_t,n,nexo = nexo, ndet, t, t_lag = nrow(y_t), names_endo)
-  names(L_R_HS) = c("LHS", "RHS","n", "nexo","ndet","t_obs", "t_lag", "names_endo")
-  return(L_R_HS)
+  # Total number of exogenous variables
+  number_of_exogenous = number_of_deterministic + number_of_exogenous
+
+  #
+  names_endogenous  = names(y)
+
+  # Function will return a list with the VAR data and a number of parameters
+  # that will be used in the calculations
+  vardata = list(
+    "y_lhs" = y_lhs,
+    "x_lhs" = x_rhs,
+    "number_of_variables"     = number_of_variables,
+    "number_of_exogenous"     = number_of_exogenous,
+    "number_of_deterministic" = number_of_deterministic,
+    "number_of_observations"  = number_of_observations,
+    "number_of_obs_lags"      = nrow(y_lhs),
+    "names_of_endogenous"     = names_endogenous
+  )
+
+
+  return(vardata)
 }
