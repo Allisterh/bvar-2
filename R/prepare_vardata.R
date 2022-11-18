@@ -5,7 +5,7 @@
 # The inclusion of Exogenous variables is also considered
 # The function returns the RHS and teh LHS of a VAR equation and some of the arguments (final number of observations,
 # the number of the exogenous variables, the number of the deterministic terms
-VAR_data_prep = function(data , lags = 1, const = T, trend = F, trend_qua = F, ex = NULL, ex_lag = NULL, xlags = 0 ){
+var_data_prepare = function(data , lags = 1, const = T, trend = F, trend_qua = F, ex = NULL, ex_lag = NULL, xlags = 0 ){
 
   # Check the consistency of the inputs
   # Test the data input
